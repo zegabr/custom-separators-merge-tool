@@ -61,7 +61,7 @@ oldFile=${parameters[1]}
 yourFile=${parameters[2]}
 parentFolder="$(dirname "${myFile}")"
 myFileBaseName="$(basename "${myFile}")"
-fileExt=$([[ "$filename" = *.* ]] && echo ".${filename##*.}" || echo '')
+fileExt=$([[ "$myFileBaseName" = *.* ]] && echo ".${myFileBaseName##*.}" || echo '')
 
 sedCommandMyFile=""
 sedCommandOldFile=""
