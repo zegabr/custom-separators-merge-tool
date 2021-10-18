@@ -55,10 +55,13 @@ shift $((OPTIND-1))
 # Main logic                                               #
 ############################################################
 
-files=("$@")
-myFile=${files[0]}
-oldFile=${files[1]}
-yourFile=${files[2]}
+parameters=("$@")
+myFile=${parameters[0]}
+oldFile=${parameters[1]}
+yourFile=${parameters[2]}
+parentFolder="$(dirname "${myFile}")"
+myFileBaseName="$(basename "${myFile}")"
+fileExt=$([[ "$filename" = *.* ]] && echo ".${filename##*.}" || echo '')
 
 sedCommandMyFile=""
 sedCommandOldFile=""
@@ -80,9 +83,9 @@ for separator in "${separators[@]}";
       sedCommandYourFile+="sed '${sedScript}' ${yourFile}"
     elif [[ $separator = ${separators[-1]} ]]
     then
-      sedCommandMyFile+=" | sed '${sedScript}' > ${myFile}_temp"
-      sedCommandOldFile+=" | sed '${sedScript}' > ${oldFile}_temp"
-      sedCommandYourFile+=" | sed '${sedScript}' > ${yourFile}_temp"
+      sedCommandMyFile+=" | sed '${sedScript}' > ${myFile}_temp${fileExt}"
+      sedCommandOldFile+=" | sed '${sedScript}' > ${oldFile}_temp${fileExt}"
+      sedCommandYourFile+=" | sed '${sedScript}' > ${yourFile}_temp${fileExt}"
     else
       sedCommandMyFile+=" | sed '${sedScript}'"
       sedCommandOldFile+=" | sed '${sedScript}'"
@@ -96,31 +99,44 @@ eval ${sedCommandOldFile}
 eval ${sedCommandYourFile}
 
 # Runs diff3 against the tokenized inputs, generating a tokenized merged file
-diff3 -m "${myFile}_temp" "${oldFile}_temp" "${yourFile}_temp" > mid_merged
+midMergedFile="${parentFolder}/mid_merged${fileExt}"
+diff3 -m "${myFile}_temp${fileExt}" "${oldFile}_temp${fileExt}" "${yourFile}_temp${fileExt}" > $midMergedFile
 
 # Removes the tokenized input files
-rm "${myFile}_temp"
-rm "${oldFile}_temp"
-rm "${yourFile}_temp"
+rm "${myFile}_temp${fileExt}"
+rm "${oldFile}_temp${fileExt}"
+rm "${yourFile}_temp${fileExt}"
 
 # Removes the tokens from the merged file, generating the final merged file
-sed ':a;N;$!ba;s/\n\$\$\$\$\$\$\$//g' mid_merged > merged
+mergedFile="${parentFolder}/merged${fileExt}"
+sed ':a;N;$!ba;s/\n\$\$\$\$\$\$\$//g' $midMergedFile > $mergedFile
 
 # Removes the tokenized merged file
-rm mid_merged
+rm $midMergedFile
 
 # Get the names of left/base/right files
 ESCAPED_LEFT=$(printf '%s\n' "${myFile}" | sed -e 's/[\/&]/\\&/g')
 ESCAPED_BASE=$(printf '%s\n' "${oldFile}" | sed -e 's/[\/&]/\\&/g')
 ESCAPED_RIGHT=$(printf '%s\n' "${yourFile}" | sed -e 's/[\/&]/\\&/g')
 
-ESCAPED_TEMP_LEFT=$(printf '%s\n' "${myFile}_temp" | sed -e 's/[\/&]/\\&/g')
-ESCAPED_TEMP_BASE=$(printf '%s\n' "${oldFile}_temp" | sed -e 's/[\/&]/\\&/g')
-ESCAPED_TEMP_RIGHT=$(printf '%s\n' "${yourFile}_temp" | sed -e 's/[\/&]/\\&/g')
+ESCAPED_TEMP_LEFT=$(printf '%s\n' "${myFile}_temp${fileExt}" | sed -e 's/[\/&]/\\&/g')
+ESCAPED_TEMP_BASE=$(printf '%s\n' "${oldFile}_temp${fileExt}" | sed -e 's/[\/&]/\\&/g')
+ESCAPED_TEMP_RIGHT=$(printf '%s\n' "${yourFile}_temp${fileExt}" | sed -e 's/[\/&]/\\&/g')
 
-# Add merge conflict annotations to the merged file.
-# This will be the output printed  after the execution of this script.
-sed "s/\(<<<<<<< $ESCAPED_TEMP_LEFT\)\(.\+\)/\1\n\2/" merged | sed "s/\(||||||| $ESCAPED_TEMP_BASE\)\(.\+\)/\1\n\2/" | sed "s/\(=======\)\(.\+\)/\1\n\2/" | sed "s/\(>>>>>>> $ESCAPED_TEMP_RIGHT\)\(.\+\)/\1\n\2/" | sed "s/$ESCAPED_TEMP_LEFT/$ESCAPED_LEFT/g" | sed "s/$ESCAPED_TEMP_BASE/$ESCAPED_BASE/g" | sed "s/$ESCAPED_TEMP_RIGHT/$ESCAPED_RIGHT/g"
+# Add merge conflict annotations and write the merged file.
+sed "s/\(<<<<<<< $ESCAPED_TEMP_LEFT\)\(.\+\)/\1\n\2/" $mergedFile \
+| sed "s/\(<<<<<<< $ESCAPED_TEMP_BASE\)\(.\+\)/\1\n\2/" \
+| sed "s/\(<<<<<<< $ESCAPED_TEMP_RIGHT\)\(.\+\)/\1\n\2/" \
+| sed "s/\(||||||| $ESCAPED_TEMP_BASE\)\(.\+\)/\1\n\2/" \
+| sed "s/\(||||||| $ESCAPED_TEMP_LEFT\)\(.\+\)/\1\n\2/" \
+| sed "s/\(||||||| $ESCAPED_TEMP_RIGHT\)\(.\+\)/\1\n\2/" \
+| sed "s/\(>>>>>>> $ESCAPED_TEMP_RIGHT\)\(.\+\)/\1\n\2/" \
+| sed "s/\(>>>>>>> $ESCAPED_TEMP_LEFT\)\(.\+\)/\1\n\2/" \
+| sed "s/\(>>>>>>> $ESCAPED_TEMP_BASE\)\(.\+\)/\1\n\2/" \
+| sed "s/\(=======\)\(.\+\)/\1\n\2/" \
+| sed "s/$ESCAPED_TEMP_LEFT/$ESCAPED_LEFT/g" \
+| sed "s/$ESCAPED_TEMP_BASE/$ESCAPED_BASE/g" \
+| sed "s/$ESCAPED_TEMP_RIGHT/$ESCAPED_RIGHT/g" > "${parentFolder}/csdiff_merge_result_${myFileBaseName}${fileExt}"
 
-# Remove the merged file
-rm merged
+# Remove the merged file, since we already saved it
+rm $mergedFile
