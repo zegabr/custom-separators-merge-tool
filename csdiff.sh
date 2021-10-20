@@ -70,8 +70,15 @@ sedCommandYourFile=""
 # Dynamically builds the sed command pipeline based on the number of synctatic separators provided
 for separator in "${separators[@]}";
   do
+    # Treat some specific symbols that need to be escaped before including them into the regex
+    escapedSeparator=$separator
+    if [[ $separator = '\' || $separator = '[' || $separator = ']' || $separator = '+' || $separator = '.' || $separator = '*' || $separator = '?' || $separator = '^' || $separator = '$' ]]
+    then
+      escapedSeparator="\\${separator}"
+    fi
+
     # Build the base substitution script to be passed to the sed command
-    sedScript="s/$separator/\n\$\$\$\$\$\$\$$separator\n\$\$\$\$\$\$\$/g"
+    sedScript="s/$escapedSeparator/\n\$\$\$\$\$\$\$$escapedSeparator\n\$\$\$\$\$\$\$/g"
 
     # When the separator is the first one in the array of separators, call sed with the substitution script and with the file
     # When the separator is the last one in the array of separators, call the final sed with the substitution script (piping with the previous call) and output the result to a temp file
