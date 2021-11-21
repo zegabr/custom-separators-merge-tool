@@ -59,7 +59,7 @@ parameters=("$@")
 myFile=${parameters[0]}
 oldFile=${parameters[1]}
 yourFile=${parameters[2]}
-parentFolder="$(dirname "${myFile}")"
+parentFolder=$(echo "${myFile%/*}")
 myFileBaseName="$(basename "${myFile}")"
 fileExt=$([[ "$myFileBaseName" = *.* ]] && echo ".${myFileBaseName##*.}" || echo '')
 
@@ -107,7 +107,7 @@ eval ${sedCommandYourFile}
 
 # Runs diff3 against the tokenized inputs, generating a tokenized merged file
 midMergedFile="${parentFolder}/mid_merged${fileExt}"
-diff3 -m "${myFile}_temp${fileExt}" "${oldFile}_temp${fileExt}" "${yourFile}_temp${fileExt}" > $midMergedFile
+diff3 -m -E "${myFile}_temp${fileExt}" "${oldFile}_temp${fileExt}" "${yourFile}_temp${fileExt}" > $midMergedFile
 
 # Removes the tokenized input files
 rm "${myFile}_temp${fileExt}"
@@ -130,7 +130,7 @@ ESCAPED_TEMP_LEFT=$(printf '%s\n' "${myFile}_temp${fileExt}" | sed -e 's/[\/&]/\
 ESCAPED_TEMP_BASE=$(printf '%s\n' "${oldFile}_temp${fileExt}" | sed -e 's/[\/&]/\\&/g')
 ESCAPED_TEMP_RIGHT=$(printf '%s\n' "${yourFile}_temp${fileExt}" | sed -e 's/[\/&]/\\&/g')
 
-# Add merge conflict annotations and write the merged file.
+# Fix the merged file line breaks that got messed up by the CSDiff algorithm.
 sed "s/\(<<<<<<< $ESCAPED_TEMP_LEFT\)\(.\+\)/\1\n\2/" $mergedFile \
 | sed "s/\(<<<<<<< $ESCAPED_TEMP_BASE\)\(.\+\)/\1\n\2/" \
 | sed "s/\(<<<<<<< $ESCAPED_TEMP_RIGHT\)\(.\+\)/\1\n\2/" \
@@ -143,7 +143,7 @@ sed "s/\(<<<<<<< $ESCAPED_TEMP_LEFT\)\(.\+\)/\1\n\2/" $mergedFile \
 | sed "s/\(=======\)\(.\+\)/\1\n\2/" \
 | sed "s/$ESCAPED_TEMP_LEFT/$ESCAPED_LEFT/g" \
 | sed "s/$ESCAPED_TEMP_BASE/$ESCAPED_BASE/g" \
-| sed "s/$ESCAPED_TEMP_RIGHT/$ESCAPED_RIGHT/g" > "${parentFolder}/csdiff_merge_result_${myFileBaseName}"
+| sed "s/$ESCAPED_TEMP_RIGHT/$ESCAPED_RIGHT/g" > "${parentFolder}/csdiff${fileExt}"
 
 # Remove the merged file, since we already saved it
 rm $mergedFile
