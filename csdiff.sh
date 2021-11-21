@@ -5,7 +5,7 @@
 helpText()
 {
    # Display Help
-   echo "Syntax: csdiff MYFILE OLDFILE YOURFILE [-options]"
+   echo "Syntax: csdiff [-options] MYFILE OLDFILE YOURFILE"
    echo "options:"
    echo "-h                    Print this Help."
    echo "-s \"<separators>\"     Specify the list of separators, e.g. \"{ } ( ) ; ,\""
