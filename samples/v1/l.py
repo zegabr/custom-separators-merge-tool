@@ -3,4 +3,7 @@ def m(a : int) -> int:
     else: return 1
     return x
 print("left")
-
+x = "base"
+if x == "base":
+    x = ""
+y = "oi"
