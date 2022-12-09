@@ -1,1 +1,0 @@
-StepVerifier.create(result).expectError(SSLException.class).verify(Duration.ofSeconds(10));
