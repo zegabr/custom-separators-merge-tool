@@ -83,8 +83,8 @@ for separator in "${separators[@]}";
     # When the separator is the first one in the array of separators, call sed with the substitution script and with the file
     # When the separator is the last one in the array of separators, call the final sed with the substitution script (piping with the previous call) and output the result to a temp file
     # When none of the above, call sed with the substitution script, piping with the previous call.
-    
-    
+
+
     if [[ $separator = ${separators[0]} ]]
     then
       if [[ ${#separators[@]} = 1 ]]
@@ -154,5 +154,6 @@ sed "s/\(<<<<<<< $ESCAPED_TEMP_LEFT\)\(.\+\)/\1\n\2/" $mergedFile \
 | sed "s/$ESCAPED_TEMP_BASE/$ESCAPED_BASE/g" \
 | sed "s/$ESCAPED_TEMP_RIGHT/$ESCAPED_RIGHT/g" > "${parentFolder}/csdiff${fileExt}"
 
+echo  "merge saved at: ${parentFolder}/csdiff${fileExt}"
 # Remove the merged file, since we already saved it
 rm $mergedFile
