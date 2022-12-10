@@ -1,7 +1,7 @@
 def m(x : int) -> int:
 <<<<<<< samples/differentidentationconsecutivelinewithoutseparator/l.py
     return x
-y = "oioi"
+y = ""
 =======
     return x+2
 y = "oi"
