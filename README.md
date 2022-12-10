@@ -12,5 +12,5 @@ This is a tool for merging files using specific language separators characters, 
 ## Examples
 Run the CSDiff tool for 3 Python files:
 ```sh
-bash csdiff.sh -s ": ( ) ," samples/v1/l.py samples/v1/b.py samples/v1/r.py
+bash csdiff.sh -s ": ( ) ," left.py base.py right.py
 ```
