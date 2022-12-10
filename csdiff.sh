@@ -111,6 +111,7 @@ for separator in "${separators[@]}";
 
 # Perform the tokenization of the input files based on the provided separators
 eval ${sedCommandMyFile}
+cat "${myFile}_temp${fileExt}"
 eval ${sedCommandOldFile}
 eval ${sedCommandYourFile}
 
