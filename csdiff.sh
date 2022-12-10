@@ -112,6 +112,8 @@ for separator in "${separators[@]}";
 # Perform the tokenization of the input files based on the provided separators
 eval ${sedCommandMyFile}
 cat "${myFile}_temp${fileExt}"
+echo "------"
+cat "${myFile}_temp${fileExt}" | python3 csdiff_python.py
 eval ${sedCommandOldFile}
 eval ${sedCommandYourFile}
 
