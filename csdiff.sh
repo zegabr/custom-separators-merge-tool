@@ -67,6 +67,10 @@ sedCommandMyFile=""
 sedCommandOldFile=""
 sedCommandYourFile=""
 
+myTempFile="${myFile}_temp${fileExt}"
+oldTempFile="${oldFile}_temp${fileExt}"
+yourTempFile="${yourFile}_temp${fileExt}"
+
 # Dynamically builds the sed command pipeline based on the number of synctatic separators provided
 for separator in "${separators[@]}";
   do
@@ -89,9 +93,9 @@ for separator in "${separators[@]}";
     then
       if [[ ${#separators[@]} = 1 ]]
       then
-        sedCommandMyFile+="sed '${sedScript}' ${myFile} > ${myFile}_temp${fileExt}"
-        sedCommandOldFile+="sed '${sedScript}' ${oldFile} > ${oldFile}_temp${fileExt}"
-        sedCommandYourFile+="sed '${sedScript}' ${yourFile}  > ${yourFile}_temp${fileExt}"
+        sedCommandMyFile+="sed '${sedScript}' ${myFile} > $myTempFile"
+        sedCommandOldFile+="sed '${sedScript}' ${oldFile} > $oldTempFile"
+        sedCommandYourFile+="sed '${sedScript}' ${yourFile}  > $yourTempFile"
       else
         sedCommandMyFile+="sed '${sedScript}' ${myFile}"
         sedCommandOldFile+="sed '${sedScript}' ${oldFile}"
@@ -99,9 +103,9 @@ for separator in "${separators[@]}";
       fi
     elif [[ $separator = ${separators[-1]} ]]
     then
-      sedCommandMyFile+=" | sed '${sedScript}' > ${myFile}_temp${fileExt}"
-      sedCommandOldFile+=" | sed '${sedScript}' > ${oldFile}_temp${fileExt}"
-      sedCommandYourFile+=" | sed '${sedScript}' > ${yourFile}_temp${fileExt}"
+      sedCommandMyFile+=" | sed '${sedScript}' > $myTempFile"
+      sedCommandOldFile+=" | sed '${sedScript}' > $oldTempFile"
+      sedCommandYourFile+=" | sed '${sedScript}' > $yourTempFile"
     else
       sedCommandMyFile+=" | sed '${sedScript}'"
       sedCommandOldFile+=" | sed '${sedScript}'"
@@ -111,20 +115,21 @@ for separator in "${separators[@]}";
 
 # Perform the tokenization of the input files based on the provided separators
 eval ${sedCommandMyFile}
-cat "${myFile}_temp${fileExt}"
+cat "$myTempFile"
 echo "------"
-cat "${myFile}_temp${fileExt}" | python3 csdiff_python.py
+# TODO add this to all 3 files
+cat "$myTempFile" | python3 csdiff_python.py
 eval ${sedCommandOldFile}
 eval ${sedCommandYourFile}
 
 # Runs diff3 against the tokenized inputs, generating a tokenized merged file
 midMergedFile="${parentFolder}/mid_merged${fileExt}"
-diff3 -m -E "${myFile}_temp${fileExt}" "${oldFile}_temp${fileExt}" "${yourFile}_temp${fileExt}" > $midMergedFile
+diff3 -m -E "$myTempFile" "$oldTempFile" "$yourTempFile" > $midMergedFile
 
 # Removes the tokenized input files
-rm "${myFile}_temp${fileExt}"
-rm "${oldFile}_temp${fileExt}"
-rm "${yourFile}_temp${fileExt}"
+rm "$myTempFile"
+rm "$oldTempFile"
+rm "$yourTempFile"
 
 # Removes the tokens from the merged file, generating the final merged file
 mergedFile="${parentFolder}/merged${fileExt}"
@@ -138,9 +143,9 @@ ESCAPED_LEFT=$(printf '%s\n' "${myFile}" | sed -e 's/[\/&]/\\&/g')
 ESCAPED_BASE=$(printf '%s\n' "${oldFile}" | sed -e 's/[\/&]/\\&/g')
 ESCAPED_RIGHT=$(printf '%s\n' "${yourFile}" | sed -e 's/[\/&]/\\&/g')
 
-ESCAPED_TEMP_LEFT=$(printf '%s\n' "${myFile}_temp${fileExt}" | sed -e 's/[\/&]/\\&/g')
-ESCAPED_TEMP_BASE=$(printf '%s\n' "${oldFile}_temp${fileExt}" | sed -e 's/[\/&]/\\&/g')
-ESCAPED_TEMP_RIGHT=$(printf '%s\n' "${yourFile}_temp${fileExt}" | sed -e 's/[\/&]/\\&/g')
+ESCAPED_TEMP_LEFT=$(printf '%s\n' "$myTempFile" | sed -e 's/[\/&]/\\&/g')
+ESCAPED_TEMP_BASE=$(printf '%s\n' "$oldTempFile" | sed -e 's/[\/&]/\\&/g')
+ESCAPED_TEMP_RIGHT=$(printf '%s\n' "$yourTempFile" | sed -e 's/[\/&]/\\&/g')
 
 # Fix the merged file line breaks that got messed up by the CSDiff algorithm.
 sed "s/\(<<<<<<< $ESCAPED_TEMP_LEFT\)\(.\+\)/\1\n\2/" $mergedFile \
