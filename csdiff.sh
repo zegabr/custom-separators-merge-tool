@@ -114,22 +114,32 @@ for separator in "${separators[@]}";
   done
 
 # Perform the tokenization of the input files based on the provided separators
-eval ${sedCommandMyFile}
-cat "$myTempFile"
-echo "------"
-# TODO add this to all 3 files
-cat "$myTempFile" | python3 csdiff_python.py
-eval ${sedCommandOldFile}
-eval ${sedCommandYourFile}
+# the & operator means it will run in paralel
+eval ${sedCommandMyFile} &
+eval ${sedCommandOldFile} &
+eval ${sedCommandYourFile} &
+# wait for all of them to finish
+wait
+
+# TODO: add if to check if files are python?
+# run the script to consider identation in paralel
+python3 csdiff_python.py < "$myTempFile" > myOut &
+python3 csdiff_python.py < "$oldTempFile" > oldOut &
+python3 csdiff_python.py < "$yourTempFile" > yourOut &
+# wait for all of them to finish
+wait
+# override the temporary files again
+cat myOut > "$myTempFile"
+cat oldOut > "$oldTempFile"
+cat yourOut > "$yourTempFile"
+rm myOut oldOut yourOut
 
 # Runs diff3 against the tokenized inputs, generating a tokenized merged file
 midMergedFile="${parentFolder}/mid_merged${fileExt}"
 diff3 -m -E "$myTempFile" "$oldTempFile" "$yourTempFile" > $midMergedFile
 
 # Removes the tokenized input files
-rm "$myTempFile"
-rm "$oldTempFile"
-rm "$yourTempFile"
+rm "$myTempFile" "$oldTempFile" "$yourTempFile"
 
 # Removes the tokens from the merged file, generating the final merged file
 mergedFile="${parentFolder}/merged${fileExt}"
