@@ -139,14 +139,14 @@ midMergedFile="${parentFolder}/mid_merged${fileExt}"
 diff3 -m -E "$myTempFile" "$oldTempFile" "$yourTempFile" > $midMergedFile
 
 # Removes the tokenized input files
-rm "$myTempFile" "$oldTempFile" "$yourTempFile"
+rm "$myTempFile" "$oldTempFile" "$yourTempFile" &
 
 # Removes the tokens from the merged file, generating the final merged file
 mergedFile="${parentFolder}/merged${fileExt}"
 sed ':a;N;$!ba;s/\n\$\$\$\$\$\$\$//g' $midMergedFile > $mergedFile
 
 # Removes the tokenized merged file
-rm $midMergedFile
+rm $midMergedFile &
 
 # Get the names of left/base/right files
 ESCAPED_LEFT=$(printf '%s\n' "${myFile}" | sed -e 's/[\/&]/\\&/g')
@@ -174,4 +174,4 @@ sed "s/\(<<<<<<< $ESCAPED_TEMP_LEFT\)\(.\+\)/\1\n\2/" $mergedFile \
 
 echo  "merge saved at: ${parentFolder}/csdiff${fileExt}"
 # Remove the merged file, since we already saved it
-rm $mergedFile
+rm $mergedFile &
