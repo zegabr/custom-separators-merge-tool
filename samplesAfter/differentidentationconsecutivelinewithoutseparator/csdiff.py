@@ -1,4 +1,8 @@
 def m(x : int) -> int:
-    return x+2
+<<<<<<< samplesAfter/differentidentationconsecutivelinewithoutseparator/l.py
+    return x
 y = ""
-
+=======
+    return x+2
+y = "oi"
+>>>>>>> samplesAfter/differentidentationconsecutivelinewithoutseparator/r.py

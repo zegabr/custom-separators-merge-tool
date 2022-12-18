@@ -1,0 +1,3 @@
+bash csdiff.sh -s ": ( ) ," samplesBefore/differentidentationconsecutivelinewithoutseparator/l.py samplesBefore/differentidentationconsecutivelinewithoutseparator/b.py  samplesBefore/differentidentationconsecutivelinewithoutseparator/r.py
+bash csdiff.sh -s ": ( ) ," samplesBefore/differentidentationconsecutivelinewithseparator/l.py samplesBefore/differentidentationconsecutivelinewithseparator/b.py  samplesBefore/differentidentationconsecutivelinewithseparator/r.py
+bash csdiff.sh -s ": ( ) ," samplesBefore/samemethodwithseparators/l.py  samplesBefore/samemethodwithseparators/b.py  samplesBefore/samemethodwithseparators/r.py
