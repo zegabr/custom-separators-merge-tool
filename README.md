@@ -14,3 +14,4 @@ Run the CSDiff tool for 3 Python files:
 ```sh
 bash csdiff.sh -s ": ( ) ," left.py base.py right.py
 ```
+also, see files test.sh and test_indentation.sh, the first one uses the csdiff_backup.sh and the other one uses the csdiff.sh (which uses csdiff_python.py)
