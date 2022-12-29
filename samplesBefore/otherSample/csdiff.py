@@ -8,6 +8,8 @@ print("left")
 def o(x : int) -> int:
 <<<<<<< samplesBefore/otherSample/l.py
     return x
-y = ""=======
+y = ""
+=======
     return x+2
-y = "oi">>>>>>> samplesBefore/otherSample/r.py
+y = "oi"
+>>>>>>> samplesBefore/otherSample/r.py

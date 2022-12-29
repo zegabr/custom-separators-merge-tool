@@ -154,5 +154,8 @@ sed "s/\(<<<<<<< $ESCAPED_TEMP_LEFT\)\(.\+\)/\1\n\2/" $mergedFile \
 | sed "s/$ESCAPED_TEMP_BASE/$ESCAPED_BASE/g" \
 | sed "s/$ESCAPED_TEMP_RIGHT/$ESCAPED_RIGHT/g" > "${parentFolder}/csdiff${fileExt}"
 
+sed -i 's/=======/\n=======/'  "${parentFolder}/csdiff${fileExt}"
+sed -i 's/>>>>>>>/\n>>>>>>>/'  "${parentFolder}/csdiff${fileExt}"
+
 # Remove the merged file, since we already saved it
 rm $mergedFile
