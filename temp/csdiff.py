@@ -1528,9 +1528,15 @@ class Axes(_AxesBase):
 
         **Markers**
 
-        =============    ===============================
+        
+=======
+======    
+===============================
         character        description
-        =============    ===============================
+        
+=======
+======    
+===============================
         ``'.'``          point marker
         ``','``          pixel marker
         ``'o'``          circle marker
@@ -1553,18 +1559,30 @@ class Axes(_AxesBase):
         ``'d'``          thin_diamond marker
         ``'|'``          vline marker
         ``'_'``          hline marker
-        =============    ===============================
+        
+=======
+======    
+===============================
 
         **Line Styles**
 
-        =============    ===============================
+        
+=======
+======    
+===============================
         character        description
-        =============    ===============================
+        
+=======
+======    
+===============================
         ``'-'``          solid line style
         ``'--'``         dashed line style
         ``'-.'``         dash-dot line style
         ``':'``          dotted line style
-        =============    ===============================
+        
+=======
+======    
+===============================
 
         Example format strings::
 
@@ -1578,9 +1596,15 @@ class Axes(_AxesBase):
 
         The supported color abbreviations are the single letter codes
 
-        =============    ===============================
+        
+=======
+======    
+===============================
         character        color
-        =============    ===============================
+        
+=======
+======    
+===============================
         ``'b'``          blue
         ``'g'``          green
         ``'r'``          red
@@ -1589,7 +1613,10 @@ class Axes(_AxesBase):
         ``'y'``          yellow
         ``'k'``          black
         ``'w'``          white
-        =============    ===============================
+        
+=======
+======    
+===============================
 
         and the ``'CN'`` colors that index into the default property cycle.
 
@@ -2741,14 +2768,23 @@ class Axes(_AxesBase):
         linefmt : str, optional
             A string defining the color and/or linestyle of the vertical lines:
 
-            =========  =============
+            
+=======
+==  
+=============
             Character  Line Style
-            =========  =============
+            
+=======
+==  
+=============
             ``'-'``    solid line
             ``'--'``   dashed line
             ``'-.'``   dash-dot line
             ``':'``    dotted line
-            =========  =============
+            
+=======
+==  
+=============
 
             Default: 'C0-', i.e. solid line with the first color of the color
             cycle.
@@ -3032,7 +3068,7 @@ class Axes(_AxesBase):
 
         if normalize is None:
             if sx < 1:
-                cbook.warn_deprecated(
+                _api.warn_deprecated(
                     "3.3", message="normalize=None does not normalize "
                     "if the sum is less than 1 but this behavior "
                     "is deprecated since %(since)s until %(removal)s. "
@@ -3062,7 +3098,7 @@ class Axes(_AxesBase):
                 return next(color_cycle)
 
         if radius is None:
-            cbook.warn_deprecated(
+            _api.warn_deprecated(
                 "3.3", message="Support for passing a radius of None to mean "
                 "1 is deprecated since %(since)s and will be removed "
                 "%(removal)s.")
@@ -3070,7 +3106,7 @@ class Axes(_AxesBase):
 
         # Starting theta1 is the start fraction of the circle
         if startangle is None:
-            cbook.warn_deprecated(
+            _api.warn_deprecated(
                 "3.3", message="Support for passing a startangle of None to "
                 "mean 0 is deprecated since %(since)s and will be removed "
                 "%(removal)s.")
@@ -5636,7 +5672,7 @@ default: :rc:`scatter.edgecolors`
                                 ' X (%d) and/or Y (%d); see help(%s)' % (
                                     C.shape, Nx, Ny, funcname))
             if (ncols == Nx or nrows == Ny):
-                cbook.warn_deprecated(
+                _api.warn_deprecated(
                     "3.3", message="shading='flat' when X and Y have the same "
                     "dimensions as C is deprecated since %(since)s.  Either "
                     "specify the corners of the quadrilaterals with X and Y, "

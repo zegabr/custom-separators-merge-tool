@@ -118,17 +118,37 @@ eval ${sedCommandMyFile}
 eval ${sedCommandOldFile}
 eval ${sedCommandYourFile}
 
-# TODO: add if to check if files are python?
-# run the script to consider identation
-python3 csdiff_python.py < "$myTempFile" > myOut
-python3 csdiff_python.py < "$oldTempFile" > oldOut
-python3 csdiff_python.py < "$yourTempFile" > yourOut
-# override the temporary files again
+
+# this is a bash translation of csdiff_python.py of this repo
+get_indentation_level() {
+    local line=$1
+    echo "${line%%[^ ]*}" | awk '{ print length }'
+}
+
+add_separators_at_indentation_changes() {
+    last_identation_level=0
+    current_identation_level=0
+    while IFS= read -r line; do
+        current_identation_level=$(get_indentation_level "$line")
+        if [[ $current_identation_level != $last_identation_level ]]; then
+            echo "\$\$\$\$\$\$\$"
+        fi
+        echo "$line"
+        last_identation_level=$current_identation_level
+    done
+}
+
+# run the script to consider identation and override the temporary files again
+add_separators_at_indentation_changes < "$myTempFile" > myOut
 cat myOut > "$myTempFile"
-cat oldOut > "$oldTempFile"
-cat yourOut > "$yourTempFile"
 rm myOut
+
+add_separators_at_indentation_changes < "$oldTempFile" > oldOut
+cat oldOut > "$oldTempFile"
 rm oldOut
+
+add_separators_at_indentation_changes < "$yourTempFile" > yourOut
+cat yourOut > "$yourTempFile"
 rm yourOut
 
 # Runs diff3 against the tokenized inputs, generating a tokenized merged file
