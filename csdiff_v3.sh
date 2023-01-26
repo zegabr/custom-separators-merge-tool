@@ -118,6 +118,12 @@ eval ${sedCommandMyFile}
 eval ${sedCommandOldFile}
 eval ${sedCommandYourFile}
 
+# fix for bug that happens when strings like ======== appears in a multiline comment
+# this replace is undone at the end
+sed -i 's/=/\$=/g' "$myTempFile"
+sed -i 's/=/\$=/g' "$oldTempFile"
+sed -i 's/=/\$=/g' "$yourTempFile"
+
 
 # this is a bash translation of csdiff_python.py of this repo
 get_indentation_level() {
@@ -194,6 +200,7 @@ sed -i -e "/^$comment_string/!s/$ESCAPED_TEMP_RIGHT/$ESCAPED_RIGHT/g" $mergedFil
 sed -i -e "/^$comment_string/!s/=======/\n=======/" $mergedFile
 sed -i -e "/^$comment_string/!s/>>>>>>>/\n>>>>>>>/" $mergedFile
 sed -i -e :a -e '/^\n*$/{$d;N;ba' -e '}' "$mergedFile"
+sed -i 's/\$=/=/g' "$mergedFile"
 
 mv "$mergedFile" "${parentFolder}/csdiff${fileExt}"
 

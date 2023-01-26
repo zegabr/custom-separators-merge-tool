@@ -1,9 +1,9 @@
 from collections import OrderedDict
 from contextlib import ExitStack
+import functools
 import inspect
 import itertools
 import logging
-import math
 from numbers import Real
 from operator import attrgetter
 import types
@@ -25,6 +25,7 @@ import matplotlib.spines as mspines
 import matplotlib.font_manager as font_manager
 import matplotlib.text as mtext
 import matplotlib.image as mimage
+import matplotlib.path as mpath
 from matplotlib.rcsetup import cycler, validate_axisbelow
 
 _log = logging.getLogger(__name__)
@@ -108,12 +109,12 @@ class _TransformedBoundsLocator:
         self._transform = transform
 
     def __call__(self, ax, renderer):
-        # Subtracting transFigure will typically rely on inverted(), freezing
-        # the transform; thus, this needs to be delayed until draw time as
-        # transFigure may otherwise change after this is evaluated.
+        # Subtracting transSubfigure will typically rely on inverted(),
+        # freezing the transform; thus, this needs to be delayed until draw
+        # time as transSubfigure may otherwise change after this is evaluated.
         return mtransforms.TransformedBbox(
             mtransforms.Bbox.from_bounds(*self._bounds),
-            self._transform - ax.figure.transFigure)
+            self._transform - ax.figure.transSubfigure)
 
 
 def _process_plot_format(fmt):
@@ -269,7 +270,7 @@ class _process_plot_var_args:
                     label_namer_idx = 1
                 else:
                     if replaced[1] is not args[1]:  # case 2a)
-                        cbook._warn_external(
+                        _api.warn_external(
                             f"Second argument {args[1]!r} is ambiguous: could "
                             f"be a format string but is in 'data'; using as "
                             f"data.  If it was intended as data, set the "
@@ -292,6 +293,12 @@ class _process_plot_var_args:
                 kwargs["label"] = mpl._label_from_arg(
                     replaced[label_namer_idx], args[label_namer_idx])
             args = replaced
+
+        if len(args) >= 4 and not cbook.is_scalar_or_string(
+                kwargs.get("label")):
+            raise ValueError("plot() with multiple groups of data (i.e., "
+                             "pairs of x and y) does not support multiple "
+                             "labels")
 
         # Repeatedly grab (x, y) or (x, y, format) from the front of args and
         # massage them into arguments to plot() or fill().
@@ -446,8 +453,22 @@ class _process_plot_var_args:
         ncx, ncy = x.shape[1], y.shape[1]
         if ncx > 1 and ncy > 1 and ncx != ncy:
             raise ValueError(f"x has {ncx} columns but y has {ncy} columns")
-        result = (func(x[:, j % ncx], y[:, j % ncy], kw, kwargs)
-                  for j in range(max(ncx, ncy)))
+
+        label = kwargs.get('label')
+        n_datasets = max(ncx, ncy)
+        if n_datasets > 1 and not cbook.is_scalar_or_string(label):
+            if len(label) != n_datasets:
+                raise ValueError(f"label must be scalar or have the same "
+                                 f"length as the input data, but found "
+                                 f"{len(label)} for {n_datasets} datasets.")
+            labels = label
+        else:
+            labels = [label] * n_datasets
+
+        result = (func(x[:, j % ncx], y[:, j % ncy], kw,
+                       {**kwargs, 'label': label})
+                  for j, label in enumerate(labels))
+
         if return_kwargs:
             return list(result)
         else:
@@ -466,7 +487,7 @@ class _AxesBase(martist.Artist):
         return "{0}({1[0]:g},{1[1]:g};{1[2]:g}x{1[3]:g})".format(
             type(self).__name__, self._position.bounds)
 
-    @cbook._make_keyword_only("3.4", "facecolor")
+    @_api.make_keyword_only("3.4", "facecolor")
     def __init__(self, fig, rect,
                  facecolor=None,  # defaults to rc axes.facecolor
                  frameon=True,
@@ -504,7 +525,7 @@ class _AxesBase(martist.Artist):
         **kwargs
             Other optional keyword arguments:
 
-            %(Axes)s
+            %(Axes_kwdoc)s
 
         Returns
         -------
@@ -562,13 +583,10 @@ class _AxesBase(martist.Artist):
 
         self.update(kwargs)
 
-        if self.xaxis is not None:
-            self._xcid = self.xaxis.callbacks.connect(
-                'units finalize', lambda: self._on_units_changed(scalex=True))
-
-        if self.yaxis is not None:
-            self._ycid = self.yaxis.callbacks.connect(
-                'units finalize', lambda: self._on_units_changed(scaley=True))
+        for name, axis in self._get_axis_map().items():
+            axis.callbacks._pickled_cids.add(
+                axis.callbacks.connect(
+                    'units finalize', self._unit_change_handler(name)))
 
         rcParams = mpl.rcParams
         self.tick_params(
@@ -778,7 +796,7 @@ class _AxesBase(martist.Artist):
             The transform used for drawing x-axis labels, which will add
             *pad_points* of padding (in points) between the axes and the label.
             The x-direction is in data coordinates and the y-direction is in
-            axis corrdinates
+            axis coordinates
         valign : {'center', 'top', 'bottom', 'baseline', 'center_baseline'}
             The text vertical alignment.
         halign : {'center', 'left', 'right'}
@@ -804,7 +822,7 @@ class _AxesBase(martist.Artist):
             The transform used for drawing secondary x-axis labels, which will
             add *pad_points* of padding (in points) between the axes and the
             label.  The x-direction is in data coordinates and the y-direction
-            is in axis corrdinates
+            is in axis coordinates
         valign : {'center', 'top', 'bottom', 'baseline', 'center_baseline'}
             The text vertical alignment.
         halign : {'center', 'left', 'right'}
@@ -854,7 +872,7 @@ class _AxesBase(martist.Artist):
             The transform used for drawing y-axis labels, which will add
             *pad_points* of padding (in points) between the axes and the label.
             The x-direction is in axis coordinates and the y-direction is in
-            data corrdinates
+            data coordinates
         valign : {'center', 'top', 'bottom', 'baseline', 'center_baseline'}
             The text vertical alignment.
         halign : {'center', 'left', 'right'}
@@ -880,7 +898,7 @@ class _AxesBase(martist.Artist):
             The transform used for drawing secondart y-axis labels, which will
             add *pad_points* of padding (in points) between the axes and the
             label.  The x-direction is in axis coordinates and the y-direction
-            is in data corrdinates
+            is in data coordinates
         valign : {'center', 'top', 'bottom', 'baseline', 'center_baseline'}
             The text vertical alignment.
         halign : {'center', 'left', 'right'}
@@ -939,8 +957,8 @@ class _AxesBase(martist.Artist):
         Axes have two position attributes. The 'original' position is the
         position allocated for the Axes. The 'active' position is the
         position the Axes is actually drawn at. These positions are usually
-        the same unless a fixed aspect is set to the Axes. See `.set_aspect`
-        for details.
+        the same unless a fixed aspect is set to the Axes. See
+        `.Axes.set_aspect` for details.
 
         Parameters
         ----------
@@ -1371,7 +1389,7 @@ class _AxesBase(martist.Artist):
             etc.
             =====   =====================
 
-            See `.set_anchor` for further details.
+            See `~.Axes.set_anchor` for further details.
 
         share : bool, default: False
             If ``True``, apply the settings to all shared Axes.
@@ -1602,23 +1620,6 @@ class _AxesBase(martist.Artist):
         ysize = max(abs(tymax - tymin), 1e-30)
         return ysize / xsize
 
-    @cbook.deprecated("3.2")
-    def get_data_ratio_log(self):
-        """
-        Return the aspect ratio of the raw data in log scale.
-
-        Notes
-        -----
-        Will be used when both axis are in log scale.
-        """
-        xmin, xmax = self.get_xbound()
-        ymin, ymax = self.get_ybound()
-
-        xsize = max(abs(math.log10(xmax) - math.log10(xmin)), 1e-30)
-        ysize = max(abs(math.log10(ymax) - math.log10(ymin)), 1e-30)
-
-        return ysize / xsize
-
     def apply_aspect(self, position=None):
         """
         Adjust the Axes for a specified data aspect ratio.
@@ -1799,7 +1800,10 @@ class _AxesBase(martist.Artist):
         matplotlib.axes.Axes.set_xlim
         matplotlib.axes.Axes.set_ylim
         """
-        if len(args) == 1 and isinstance(args[0], (str, bool)):
+        if len(args) > 1:
+            raise TypeError("axis() takes 0 or 1 positional arguments but "
+                            f"{len(args)} were given")
+        elif len(args) == 1 and isinstance(args[0], (str, bool)):
             s = args[0]
             if s is True:
                 s = 'on'
@@ -1841,18 +1845,13 @@ class _AxesBase(martist.Artist):
                 raise ValueError('Unrecognized string %s to axis; '
                                  'try on or off' % s)
         else:
-            if len(args) >= 1:
-                if len(args) != 1:
-                    cbook.warn_deprecated(
-                        "3.2", message="Passing more than one positional "
-                        "argument to axis() is deprecated and will raise a "
-                        "TypeError %(removal)s.")
+            if len(args) == 1:
                 limits = args[0]
                 try:
                     xmin, xmax, ymin, ymax = limits
                 except (TypeError, ValueError) as err:
                     raise TypeError('the first argument to axis() must be an '
-                                    'interable of the form '
+                                    'iterable of the form '
                                     '[xmin, xmax, ymin, ymax]') from err
             else:
                 xmin = kwargs.pop('xmin', None)
@@ -2116,7 +2115,9 @@ class _AxesBase(martist.Artist):
         if (isinstance(patch, mpatches.Rectangle) and
                 ((not patch.get_width()) and (not patch.get_height()))):
             return
-        vertices = patch.get_path().vertices
+        p = patch.get_path()
+        vertices = p.vertices if p.codes is None else p.vertices[np.isin(
+            p.codes, (mpath.Path.CLOSEPOLY, mpath.Path.STOP), invert=True)]
         if vertices.size > 0:
             xys = patch.get_patch_transform().transform(vertices)
             if patch.get_data_transform() != self.transData:
@@ -2150,14 +2151,17 @@ class _AxesBase(martist.Artist):
         container._remove_method = self.containers.remove
         return container
 
-    def _on_units_changed(self, scalex=False, scaley=False):
+    def _unit_change_handler(self, axis_name, event=None):
         """
-        Callback for processing changes to axis units.
-
-        Currently requests updates of data limits and view limits.
+        Process axis units changes: requests updates to data and view limits.
         """
+        if event is None:  # Allow connecting `self._unit_change_handler(name)`
+            return functools.partial(
+                self._unit_change_handler, axis_name, event=object())
+        _api.check_in_list(self._get_axis_map(), axis_name=axis_name)
         self.relim()
-        self._request_autoscale_view(scalex=scalex, scaley=scaley)
+        self._request_autoscale_view(scalex=(axis_name == "x"),
+                                     scaley=(axis_name == "y"))
 
     def relim(self, visible_only=False):
         """
@@ -2213,7 +2217,7 @@ class _AxesBase(martist.Artist):
                                          updatex=updatex, updatey=updatey)
         self.ignore_existing_data_limits = False
 
-    @cbook.deprecated(
+    @_api.deprecated(
         "3.3", alternative="ax.dataLim.set(Bbox.union([ax.dataLim, bounds]))")
     def update_datalim_bounds(self, bounds):
         """
@@ -2476,7 +2480,7 @@ class _AxesBase(martist.Artist):
 
         if x is None and y is None:
             if tight is not True:
-                cbook._warn_external(f'ignoring tight={tight!r} in get mode')
+                _api.warn_external(f'ignoring tight={tight!r} in get mode')
             return self._xmargin, self._ymargin
 
         if tight is not None:
@@ -2488,11 +2492,20 @@ class _AxesBase(martist.Artist):
 
     def set_rasterization_zorder(self, z):
         """
+        Set the zorder threshold for rasterization for vector graphics output.
+
+        All artists with a zorder below the given value will be rasterized if
+        they support rasterization.
+
+        This setting is ignored for pixel-based output.
+
+        See also :doc:`/gallery/misc/rasterization_demo`.
+
         Parameters
         ----------
         z : float or None
-            zorder below which artists are rasterized.  ``None`` means that
-            artists do not get rasterized based on zorder.
+            The zorder below which artists are rasterized.
+            If ``None`` rasterization based on zorder is deactivated.
         """
         self._rasterization_zorder = z
         self.stale = True
@@ -2601,9 +2614,9 @@ class _AxesBase(martist.Artist):
                     for ax in self._shared_y_axes.get_siblings(self)
                     if hasattr(ax, "lines")
                     for artist in ax.get_children()]))
-        if self.get_xscale().lower() == 'log':
+        if self.get_xscale() == 'log':
             x_stickies = x_stickies[x_stickies > 0]
-        if self.get_yscale().lower() == 'log':
+        if self.get_yscale() == 'log':
             y_stickies = y_stickies[y_stickies > 0]
 
         def handle_single_axis(scale, autoscaleon, shared_axes, interval,
@@ -2754,7 +2767,7 @@ class _AxesBase(martist.Artist):
 
     # Drawing
     @martist.allow_rasterization
-    @cbook._delete_parameter(
+    @_api.delete_parameter(
         "3.3", "inframe", alternative="Axes.redraw_in_frame()")
     def draw(self, renderer=None, inframe=False):
         # docstring inherited
@@ -2966,7 +2979,7 @@ class _AxesBase(martist.Artist):
 
             Valid keyword arguments are:
 
-            %(_Line2D_docstr)s
+            %(Line2D_kwdoc)s
 
         Notes
         -----
@@ -2976,8 +2989,6 @@ class _AxesBase(martist.Artist):
         use `.set_axisbelow` or, for more control, call the
         `~.Artist.set_zorder` method of each axis.
         """
-        if len(kwargs):
-            b = True
         _api.check_in_list(['x', 'y', 'both'], axis=axis)
         if axis in ['x', 'both']:
             self.xaxis.grid(b, which=which, **kwargs)
@@ -3455,19 +3466,19 @@ class _AxesBase(martist.Artist):
             # so only grab the limits if we really need them.
             old_left, old_right = self.get_xlim()
             if left <= 0:
-                cbook._warn_external(
+                _api.warn_external(
                     'Attempted to set non-positive left xlim on a '
                     'log-scaled axis.\n'
                     'Invalid limit will be ignored.')
                 left = old_left
             if right <= 0:
-                cbook._warn_external(
+                _api.warn_external(
                     'Attempted to set non-positive right xlim on a '
                     'log-scaled axis.\n'
                     'Invalid limit will be ignored.')
                 right = old_right
         if left == right:
-            cbook._warn_external(
+            _api.warn_external(
                 f"Attempting to set identical left == right == {left} results "
                 f"in singular transformations; automatically expanding.")
         reverse = left > right
@@ -3503,7 +3514,7 @@ class _AxesBase(martist.Artist):
 
         Parameters
         ----------
-        value : {"linear", "log", "symlog", "logit", ...}
+        value : {"linear", "log", "symlog", "logit", ...} or `.ScaleBase`
             The axis scale type to apply.
 
         **kwargs
@@ -3514,6 +3525,7 @@ class _AxesBase(martist.Artist):
             - `matplotlib.scale.LogScale`
             - `matplotlib.scale.SymmetricalLogScale`
             - `matplotlib.scale.LogitScale`
+            - `matplotlib.scale.FuncScale`
 
         Notes
         -----
@@ -3780,19 +3792,19 @@ class _AxesBase(martist.Artist):
             # so only grab the limits if we really need them.
             old_bottom, old_top = self.get_ylim()
             if bottom <= 0:
-                cbook._warn_external(
+                _api.warn_external(
                     'Attempted to set non-positive bottom ylim on a '
                     'log-scaled axis.\n'
                     'Invalid limit will be ignored.')
                 bottom = old_bottom
             if top <= 0:
-                cbook._warn_external(
+                _api.warn_external(
                     'Attempted to set non-positive top ylim on a '
                     'log-scaled axis.\n'
                     'Invalid limit will be ignored.')
                 top = old_top
         if bottom == top:
-            cbook._warn_external(
+            _api.warn_external(
                 f"Attempting to set identical bottom == top == {bottom} "
                 f"results in singular transformations; automatically "
                 f"expanding.")
@@ -3829,7 +3841,7 @@ class _AxesBase(martist.Artist):
 
         Parameters
         ----------
-        value : {"linear", "log", "symlog", "logit", ...}
+        value : {"linear", "log", "symlog", "logit", ...} or `.ScaleBase`
             The axis scale type to apply.
 
         **kwargs
@@ -3840,6 +3852,7 @@ class _AxesBase(martist.Artist):
             - `matplotlib.scale.LogScale`
             - `matplotlib.scale.SymmetricalLogScale`
             - `matplotlib.scale.LogitScale`
+            - `matplotlib.scale.FuncScale`
 
         Notes
         -----
@@ -4078,7 +4091,7 @@ class _AxesBase(martist.Artist):
                     xzc + xwidth/2./scl, yzc + ywidth/2./scl]
         elif len(bbox) != 4:
             # should be len 3 or 4 but nothing else
-            cbook._warn_external(
+            _api.warn_external(
                 "Warning in _set_view_from_bbox: bounding box is not a tuple "
                 "of length 3 or 4. Ignoring the view change.")
             return
@@ -4222,7 +4235,7 @@ class _AxesBase(martist.Artist):
                 result = (mtransforms.Bbox(newpoints)
                           .transformed(p.trans_inverse))
             except OverflowError:
-                cbook._warn_external('Overflow while panning')
+                _api.warn_external('Overflow while panning')
                 return
         else:
             return
